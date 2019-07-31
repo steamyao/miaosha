@@ -12,6 +12,9 @@ public interface UserService {
 
     UserModel getUserById(Integer id);
 
+    UserModel getUserByIdInCache(Integer id);
+
+
     void register(UserModel userModel) throws BussinessException;
 
     //用户手机号  加密后的密码

@@ -2,6 +2,7 @@ package com.steamyao.miaosha.service.model;
 
 import org.joda.time.DateTime;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
@@ -9,7 +10,7 @@ import java.math.BigDecimal;
  * @date 2019/7/24 8:11
  * @description  秒杀模型
  */
-public class PromoModel {
+public class PromoModel  implements Serializable {
 
     private Integer id;
 

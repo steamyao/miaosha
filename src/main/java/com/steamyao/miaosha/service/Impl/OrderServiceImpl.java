@@ -46,11 +46,11 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderModel creatOrder(Integer userId, Integer itemId,Integer promoId, Integer amount) throws BussinessException {
         //1.校验参数的合法性
-        UserModel userModel = userService.getUserById(userId);
+        UserModel userModel = userService.getUserByIdInCache(userId);
         if (userModel == null){
             throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"用户不存在");
         }
-        ItemModel itemModel = itemService.getItemById(itemId);
+        ItemModel itemModel = itemService.getItemByIdInCache(itemId);
         if(itemModel==null){
             throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"商品不存在");
         }

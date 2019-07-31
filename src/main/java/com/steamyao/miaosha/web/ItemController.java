@@ -2,12 +2,15 @@ package com.steamyao.miaosha.web;
 
 import com.steamyao.miaosha.error.BussinessException;
 import com.steamyao.miaosha.response.CommonReturnType;
+import com.steamyao.miaosha.service.CacheService;
 import com.steamyao.miaosha.service.ItemService;
+import com.steamyao.miaosha.service.PromoService;
 import com.steamyao.miaosha.service.model.ItemModel;
 import com.steamyao.miaosha.web.viewObject.ItemVo;
 import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,12 +20,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
  * @Package com.steamyao.miaosha.web
  * @date 2019/7/22 16:09
- * @description
+ * @description    @CrossOrigin 允许session 跨域请求
  */
 @Controller("item")
 @RequestMapping("/item")
@@ -31,6 +35,16 @@ public class ItemController extends BaseController {
 
     @Autowired
     private ItemService itemService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Autowired
+    private CacheService cacheService;
+
+    @Autowired
+    private PromoService promoService;
+
 
     @RequestMapping(value = "/creat",method ={RequestMethod.POST},consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
@@ -58,12 +72,35 @@ public class ItemController extends BaseController {
     @RequestMapping(value = "/get",method ={RequestMethod.GET})
     @ResponseBody
     public CommonReturnType getItem(@RequestParam("id")Integer id){
-        ItemModel itemModel = itemService.getItemById(id);
+        ItemModel itemModel = null;
+        //1.从本地缓存获取
+        itemModel = (ItemModel) cacheService.getFormCommonCache("item_" + id);
+
+        //2 从 redis 取
+        if (itemModel==null){
+            itemModel = (ItemModel) redisTemplate.opsForValue().get("item_" + id);
+            //3. 从数据库获取
+            if (itemModel == null){
+                itemModel = itemService.getItemById(id);
+                redisTemplate.opsForValue().set("item_"+id,itemModel,10, TimeUnit.MINUTES);
+            }
+            cacheService.setCommonCache("item_"+id,itemModel);
+        }
+
+
         ItemVo itemVo = this.convertVoFromModel(itemModel);
 
         return CommonReturnType.creat(itemVo);
     }
 
+    //发布秒杀商品信息
+    @RequestMapping(value = "/publishpromo",method ={RequestMethod.GET})
+    @ResponseBody
+    public CommonReturnType publishPromo(@RequestParam("id")Integer promoId){
+        promoService.publishPromoById(promoId);
+
+        return CommonReturnType.creat(null);
+    }
 
     @RequestMapping(value = "/list",method ={RequestMethod.GET})
     @ResponseBody

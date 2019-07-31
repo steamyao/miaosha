@@ -21,6 +21,9 @@ public interface ItemService {
     //商品查询
     ItemModel getItemById(Integer id);
 
+    //item promo model缓存模型
+    ItemModel getItemByIdInCache(Integer id);
+
     //商品库存减少
     boolean descStock(Integer itemId,Integer amount);
 

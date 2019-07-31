@@ -10,4 +10,7 @@ import com.steamyao.miaosha.service.model.PromoModel;
 public interface PromoService {
 
     PromoModel getPromoById(Integer itemId);
+
+    //发布库存到redis 缓存
+    void publishPromoById(Integer prompId);
 }

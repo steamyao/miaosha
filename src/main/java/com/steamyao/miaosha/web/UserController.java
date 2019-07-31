@@ -9,6 +9,7 @@ import com.steamyao.miaosha.service.model.UserModel;
 import com.steamyao.miaosha.web.viewObject.UserVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,6 +23,8 @@ import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Package com.steamyao.miaosha.web
@@ -38,6 +41,9 @@ public class UserController extends BaseController {
     @Autowired
     private HttpServletRequest httpServletRequest;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     //用户登录接口
     @RequestMapping("/login")
     @ResponseBody
@@ -49,12 +55,21 @@ public class UserController extends BaseController {
         }
         //用户登录校验
         UserModel userModel = userService.validateLogin(telphone,this.EncodeByMD5(password));
+//        基于cookie的session
+//        this.httpServletRequest.getSession().setAttribute("IS_LOGIN",true);
+//        this.httpServletRequest.getSession().setAttribute("LOGIN_USER",userModel);
 
-        this.httpServletRequest.getSession().setAttribute("IS_LOGIN",true);
-        this.httpServletRequest.getSession().setAttribute("LOGIN_USER",userModel);
+        //基于token 的session,使用redis
+        String token = UUID.randomUUID().toString();
+        token = token.replace("-", "");
+        redisTemplate.opsForValue().set(token,userModel);
+        //1小时登录信息过期
+        redisTemplate.expire(token,1, TimeUnit.HOURS);
 
 
-        return CommonReturnType.creat(null);
+
+        //返回前端token
+        return CommonReturnType.creat(token);
     }
 
     //用户注册接口

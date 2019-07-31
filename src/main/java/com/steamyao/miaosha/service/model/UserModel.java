@@ -4,13 +4,14 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import java.io.Serializable;
 
 /**
  * @Package com.steamyao.miaosha.service.model
  * @date 2019/7/3 18:10
  * @description
  */
-public class UserModel {
+public class UserModel implements Serializable {
 
     private Integer id;
 
