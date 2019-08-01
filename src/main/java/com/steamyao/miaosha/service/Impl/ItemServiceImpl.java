@@ -2,8 +2,10 @@ package com.steamyao.miaosha.service.Impl;
 
 import com.steamyao.miaosha.dao.ItemDOMapper;
 import com.steamyao.miaosha.dao.ItemStockDOMapper;
+import com.steamyao.miaosha.dao.StockLogDOMapper;
 import com.steamyao.miaosha.dataobject.ItemDO;
 import com.steamyao.miaosha.dataobject.ItemStockDO;
+import com.steamyao.miaosha.dataobject.StockLogDO;
 import com.steamyao.miaosha.error.BussinessException;
 import com.steamyao.miaosha.error.EmBussinessError;
 import com.steamyao.miaosha.mq.MqProducer;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -49,6 +52,10 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private MqProducer producer;
+
+    @Autowired
+    private StockLogDOMapper stockLogDOMapper;
+
 
     @Override
     @Transactional
@@ -124,31 +131,62 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional
-    public boolean descStock(Integer itemId, Integer amount) {
+    public boolean decreaseStock(Integer itemId, Integer amount) {
         //减缓存库存  result为返回的库存
         long result = redisTemplate.opsForValue().decrement("promo_item_stock_" + itemId, amount.longValue());
         //int affectRow = itemStockDOMapper.decreaseStock(itemId, amount);
-        if(result>=0){
+        if(result>0){
             //成功,异步消息队列减库存
-            boolean mqResult = producer.asynaDescStock(itemId, amount);
-            if(!mqResult){
-                //加缓存存库
-                redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.longValue());
-                return false;
-            }
+//            boolean mqResult = producer.asynaDescStock(itemId, amount);
+//            if(!mqResult){
+//                //加缓存存库
+//                redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.longValue());
+//                return false;
+//            }
+            //更新库存成功
             return true;
-        }else {
-            //失败
-            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.longValue());
+        }else if (result == 0){
+            //库存售罄标识
+            redisTemplate.opsForValue().set("promo_item_stock_invalid_" + itemId,"true");
+
+            return true;
+        } else {
+            //更新失败，回滚
+            increaseStock(itemId,amount);
             return false;
         }
 
+    }
+
+    @Override
+    public boolean increaseStock(Integer itemId, Integer amount) {
+        redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.longValue());
+        return true;
+    }
+
+    @Override
+    public boolean asyncDescStock(Integer itemId, Integer amount) {
+        boolean mqResult = producer.asynaDescStock(itemId, amount);
+        return mqResult;
     }
 
 
     @Override
     public void increaseSales(Integer itemId, Integer amount) {
         itemDOMapper.increaseSales(itemId,amount);
+    }
+
+    @Override
+    public String initStockLog(Integer itemId, Integer amount) {
+        StockLogDO stockLogDO = new StockLogDO();
+        stockLogDO.setAmount(amount);
+        stockLogDO.setItemId(itemId);
+        stockLogDO.setStockLogId(UUID.randomUUID().toString().replace("-",""));
+        stockLogDO.setStatus(1);
+
+        stockLogDOMapper.insertSelective(stockLogDO);
+
+        return stockLogDO.getStockLogId();
     }
 
 

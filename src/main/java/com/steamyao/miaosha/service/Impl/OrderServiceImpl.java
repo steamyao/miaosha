@@ -2,8 +2,10 @@ package com.steamyao.miaosha.service.Impl;
 
 import com.steamyao.miaosha.dao.OrderDOMapper;
 import com.steamyao.miaosha.dao.SequenceDOMapper;
+import com.steamyao.miaosha.dao.StockLogDOMapper;
 import com.steamyao.miaosha.dataobject.OrderDO;
 import com.steamyao.miaosha.dataobject.SequenceDO;
+import com.steamyao.miaosha.dataobject.StockLogDO;
 import com.steamyao.miaosha.error.BussinessException;
 import com.steamyao.miaosha.error.EmBussinessError;
 import com.steamyao.miaosha.service.ItemService;
@@ -42,9 +44,14 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private SequenceDOMapper sequenceDOMapper;
 
+
+    @Autowired
+    private StockLogDOMapper stockLogDOMapper;
+
+
     @Override
     @Transactional
-    public OrderModel creatOrder(Integer userId, Integer itemId,Integer promoId, Integer amount) throws BussinessException {
+    public OrderModel creatOrder(Integer userId, Integer itemId,Integer promoId, Integer amount,String stockLogId) throws BussinessException {
         //1.校验参数的合法性
         UserModel userModel = userService.getUserByIdInCache(userId);
         if (userModel == null){
@@ -72,7 +79,7 @@ public class OrderServiceImpl implements OrderService {
 
 
         //2.下单减库存
-        boolean result = itemService.descStock(itemId, amount);
+        boolean result = itemService.decreaseStock(itemId, amount);
         if(!result){
             throw new BussinessException(EmBussinessError.STOCK_NOT_ENOUGH);
         }
@@ -98,6 +105,29 @@ public class OrderServiceImpl implements OrderService {
         orderDOMapper.insertSelective(orderDO);
         //增加销量
         itemService.increaseSales(itemId,amount);
+
+        //更新库存流水状态,行锁级别，不会导致大的竞争
+        StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+        if(stockLogDO == null){
+            throw new BussinessException(EmBussinessError.UNKNOWN_ERROR);
+        }
+        stockLogDO.setStatus(2);
+        stockLogDOMapper.updateByPrimaryKeySelective(stockLogDO);
+
+//
+//        //异步更新库存,当前事务提交之后执行
+//        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+//            @Override
+//            public void afterCommit() {
+//                boolean mqresult = itemService.asyncDescStock(itemId, amount);
+////                if (!mqresult){
+////                    itemService.increaseStock(itemId,amount);
+////                    throw new BussinessException(EmBussinessError.MQ_SEND_FAIL);
+////                }
+//            }
+//        });
+
+
 
         //4.返回前端
         return orderModel;

@@ -25,8 +25,18 @@ public interface ItemService {
     ItemModel getItemByIdInCache(Integer id);
 
     //商品库存减少
-    boolean descStock(Integer itemId,Integer amount);
+    boolean decreaseStock(Integer itemId, Integer amount);
+
+    //商品库存增加
+    boolean increaseStock(Integer itemId,Integer amount);
+
+    //异步更新库存
+    boolean asyncDescStock(Integer itemId,Integer amount);
+
 
     //商品销量增加
     void increaseSales(Integer itemId,Integer amount);
+
+    //初始化流水库存状态
+    String initStockLog(Integer itemId,Integer amount);
 }
