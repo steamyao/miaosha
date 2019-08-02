@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Package com.steamyao.miaosha.web
@@ -72,7 +73,7 @@ public class OrderController extends BaseController {
         executorService = Executors.newFixedThreadPool(10);
     }
 
-    @RequestMapping(value = "/verify",method ={RequestMethod.GET})
+    @RequestMapping(value = "/verifyCode",method ={RequestMethod.GET})
     @ResponseBody
     public  void generateVerifyCode(HttpServletResponse response) throws BussinessException, IOException {
         //前端传过来的token host路径
@@ -86,15 +87,19 @@ public class OrderController extends BaseController {
             throw new BussinessException(EmBussinessError.USER_NOT_LOGIN,"用户还未登录");
         }
 
+        //获取验证码，存入redis，并返回前端
         Map<String,Object> map = ImgUtil.generateCodeAndPic();
         redisTemplate.opsForValue().set("veryfy_code"+userModel.getId(),map.get("code"));
+        redisTemplate.expire("veryfy_code"+userModel.getId(),5, TimeUnit.MINUTES);
         ImageIO.write((RenderedImage) map.get("codePic"), "jpeg", response.getOutputStream());
     }
 
     @RequestMapping(value = "/generateToken",method ={RequestMethod.POST},consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
     public CommonReturnType generatePromoToken(@RequestParam("itemId")Integer itemId,
-                                               @RequestParam(value = "promoId")Integer promoId) throws BussinessException{
+                                               @RequestParam(value = "promoId")Integer promoId,
+                                               @RequestParam(value = "verifyCode")String verifyCode) throws BussinessException{
+
         //前端传过来的token host路径
         String token =  httpServletRequest.getParameterMap().get("token")[0];
         if (StringUtils.isEmpty(token)){
@@ -106,7 +111,18 @@ public class OrderController extends BaseController {
         if(userModel==null ){
             throw new BussinessException(EmBussinessError.USER_NOT_LOGIN,"用户还未登录");
         }
-         //生成秒杀令牌
+
+        //校验验证码是否正确
+        if(StringUtils.isEmpty(verifyCode)){
+            throw  new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"验证码不正确");
+        }
+        String inRedisVerifyCode =(String) redisTemplate.opsForValue().get("veryfy_code" + userModel.getId());
+        if(!org.apache.commons.lang3.StringUtils.equalsIgnoreCase(verifyCode,inRedisVerifyCode)){
+            throw  new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"验证码不正确");
+        }
+
+
+        //生成秒杀令牌
         String promoToken = promoService.generatrSecondKillToken(promoId, userModel.getId(), itemId);
 
         if (promoToken == null){
