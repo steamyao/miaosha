@@ -13,7 +13,6 @@ import com.steamyao.miaosha.service.OrderService;
 import com.steamyao.miaosha.service.UserService;
 import com.steamyao.miaosha.service.model.ItemModel;
 import com.steamyao.miaosha.service.model.OrderModel;
-import com.steamyao.miaosha.service.model.UserModel;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -52,29 +51,14 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderModel creatOrder(Integer userId, Integer itemId,Integer promoId, Integer amount,String stockLogId) throws BussinessException {
-        //1.校验参数的合法性
-        UserModel userModel = userService.getUserByIdInCache(userId);
-        if (userModel == null){
-            throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"用户不存在");
-        }
+       //1.校验参数的合法性
+
         ItemModel itemModel = itemService.getItemByIdInCache(itemId);
         if(itemModel==null){
             throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"商品不存在");
         }
         if(amount<0 || amount>99){
             throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"商品数量不合法");
-        }
-
-        //秒杀信息校验
-        if(promoId !=null){
-            //{1} 校验前端的promoid 是否属于秒杀商品
-            if(promoId.intValue() != itemModel.getPromoModel().getId()){
-                throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"活动信息不正确");
-            }
-            //{2} 校验活动是否开始
-            if (itemModel.getPromoModel().getStatus()!=2){
-                throw new BussinessException(EmBussinessError.PARAMETER_VALIDATION_ERROR,"秒杀还未开始活动");
-            }
         }
 
 
@@ -113,20 +97,6 @@ public class OrderServiceImpl implements OrderService {
         }
         stockLogDO.setStatus(2);
         stockLogDOMapper.updateByPrimaryKeySelective(stockLogDO);
-
-//
-//        //异步更新库存,当前事务提交之后执行
-//        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
-//            @Override
-//            public void afterCommit() {
-//                boolean mqresult = itemService.asyncDescStock(itemId, amount);
-////                if (!mqresult){
-////                    itemService.increaseStock(itemId,amount);
-////                    throw new BussinessException(EmBussinessError.MQ_SEND_FAIL);
-////                }
-//            }
-//        });
-
 
 
         //4.返回前端

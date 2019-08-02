@@ -134,15 +134,8 @@ public class ItemServiceImpl implements ItemService {
     public boolean decreaseStock(Integer itemId, Integer amount) {
         //减缓存库存  result为返回的库存
         long result = redisTemplate.opsForValue().decrement("promo_item_stock_" + itemId, amount.longValue());
-        //int affectRow = itemStockDOMapper.decreaseStock(itemId, amount);
         if(result>0){
-            //成功,异步消息队列减库存
-//            boolean mqResult = producer.asynaDescStock(itemId, amount);
-//            if(!mqResult){
-//                //加缓存存库
-//                redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.longValue());
-//                return false;
-//            }
+
             //更新库存成功
             return true;
         }else if (result == 0){
