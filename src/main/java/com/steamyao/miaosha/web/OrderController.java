@@ -1,5 +1,6 @@
 package com.steamyao.miaosha.web;
 
+import com.google.common.util.concurrent.RateLimiter;
 import com.steamyao.miaosha.error.BussinessException;
 import com.steamyao.miaosha.error.EmBussinessError;
 import com.steamyao.miaosha.mq.MqProducer;
@@ -66,12 +67,16 @@ public class OrderController extends BaseController {
 
 
     private ExecutorService executorService;
-
+    private RateLimiter orderRateLimiter;
     @PostConstruct
     public void init(){
         //创建线程池，可以用作泄洪队列,拥塞窗口为10
         executorService = Executors.newFixedThreadPool(10);
+
+        //每秒100TPS 限流
+        orderRateLimiter = RateLimiter.create(100);
     }
+
 
     @RequestMapping(value = "/verifyCode",method ={RequestMethod.GET})
     @ResponseBody
@@ -142,6 +147,11 @@ public class OrderController extends BaseController {
                                        @RequestParam("amount")Integer amount,
                                        @RequestParam(value = "promoId",required = false)Integer promoId,
                                        @RequestParam(value = "promoToken",required = false)String promoToken) throws BussinessException {
+
+        if(orderRateLimiter.acquire()<0){
+            throw new BussinessException(EmBussinessError.RATELIMITE);
+        }
+
 
        //前端传过来的token host路径
        String token =  httpServletRequest.getParameterMap().get("token")[0];
